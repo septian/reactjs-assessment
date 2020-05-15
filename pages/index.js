@@ -1,49 +1,68 @@
-import React from 'react'
-import { useDispatch } from 'react-redux'
-import { withRedux } from '../lib/redux'
-import { compose } from 'redux'
-import { withApollo } from '../lib/apollo'
-import useInterval from '../lib/useInterval'
-import Layout from '../components/Layout'
-import Clock from '../components/Clock'
-import Counter from '../components/Counter'
-import Submit from '../components/Submit'
-import PostList from '../components/PostList'
+import Layout from '../components/Layout';
+import gql from 'graphql-tag'
+import { withApollo } from '../lib/apollo';
+import { useQuery } from '@apollo/react-hooks';
+import Link from 'next/link';
+
+const CATEGORY_QUERY = gql`
+{
+  categoryList {
+    id
+    name
+    url_key
+    url_path
+    children {
+      id
+      name
+      url_key
+      url_path
+      children {
+        id
+        name
+        url_key
+        url_path
+      }
+    }
+  }
+}
+`;
 
 const IndexPage = () => {
-  // Tick the time every second
-  const dispatch = useDispatch()
-  useInterval(() => {
-    dispatch({
-      type: 'TICK',
-      light: true,
-      lastUpdate: Date.now(),
-    })
-  }, 1000)
+  const pageConfig = {
+    title: "Homepage.."
+  }
+
+  const {loading, data} = useQuery(CATEGORY_QUERY);
+
+  if (loading) {
+    return <div>loading...</div>
+  }
+
+  const categories = data.categoryList[0].children;
+
   return (
-    <Layout>
-      {/* Redux */}
-      <Clock />
-      <Counter />
-      <hr />
-      {/* Apollo */}
-      <Submit />
-      <PostList />
+    <Layout pageConfig={pageConfig}>
+      <h1>Homepage</h1>
+      <ul>
+        {categories.map((cat1) => (
+            <li key={cat1.name}>
+              <Link href="category/[...slug]" as={`category/${cat1.id}`}>
+                <a>{cat1.name}</a>
+              </Link>
+              <ul>
+                {cat1.children.map((cat2) => (
+                  <li>
+                    <Link href="category/[...slug]" as={`category/${cat2.id}`}>
+                      <a>{cat2.name}</a>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </li>
+        ))}
+      </ul>
     </Layout>
   )
 }
 
-IndexPage.getInitialProps = ({ reduxStore }) => {
-  // Tick the time once, so we'll have a
-  // valid time before first render
-  const { dispatch } = reduxStore
-  dispatch({
-    type: 'TICK',
-    light: typeof window === 'object',
-    lastUpdate: Date.now(),
-  })
-
-  return {}
-}
-
-export default compose(withApollo, withRedux)(IndexPage)
+export default (withApollo)(IndexPage);
